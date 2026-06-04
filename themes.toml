@@ -1,0 +1,13 @@
+# 主题注册表 — 构建时自动拉取 + 覆盖配置
+#
+# [主题名]           — 主题标识
+# repo               — Git 仓库地址
+# [[主题名.files]]   — 覆盖映射（可多个）
+#   from             — 仓库中的源文件路径
+#   to               — 目标路径（相对于主题根目录）
+
+[papermod]
+repo = "https://github.com/adityatelange/hugo-PaperMod.git"
+# [[papermod.files]]
+# from = "hugo/themes-config/papermod/theme.toml"
+# to = "theme.toml"

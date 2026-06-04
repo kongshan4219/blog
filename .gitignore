@@ -1,0 +1,14 @@
+# 构建输出
+hugo/public/
+hugo/resources/
+hexo/public/
+zola/public/
+
+# 构建时自动生成
+hugo/content
+hugo/themes/
+hexo/source/_posts
+zola/content
+
+# 锁文件
+hugo/.hugo_build.lock

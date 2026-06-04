@@ -1,0 +1,15 @@
+baseURL = "https://kongshan4219.github.io/blog/"
+languageCode = "zh-cn"
+title = "Blog"
+theme = "papermod"
+
+[params]
+  [params.homeInfo]
+    title = "Hi there 👋"
+    content = ""
+
+[frontmatter]
+  date = [":filename", ":default"]
+
+[markup.goldmark.renderer]
+  unsafe = true
