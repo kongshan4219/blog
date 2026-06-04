@@ -1,0 +1,73 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: latest
+          extended: true
+
+      - name: Fetch Theme
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          THEME=$(grep -oP '^\[(\w+)\]' themes.toml | head -1 | tr -d '[]')
+          REPO=$(grep -oP 'repo\s*=\s*"\K[^"]+' themes.toml)
+          echo "Theme: $THEME"
+          mkdir -p hugo/themes
+          git clone --depth 1 "$REPO" "hugo/themes/$THEME"
+          while IFS= read -r line; do
+            if echo "$line" | grep -qP '^\[\[$THEME\.files\]\]$'; then
+              in_files=true; continue
+            fi
+            [ "$in_files" = true ] && echo "$line" | grep -qP '^\[' && in_files=false
+            if [ "$in_files" = true ]; then
+              from=$(echo "$line" | grep -oP 'from\s*=\s*"\K[^"]+')
+              to=$(echo "$line" | grep -oP 'to\s*=\s*"\K[^"]+')
+              if [ -n "$from" ] && [ -n "$to" ] && [ -f "$from" ]; then
+                cp "$from" "hugo/themes/$THEME/$to"
+                echo "  Override: $to"
+              fi
+            fi
+          done < themes.toml
+
+      - name: Build Hugo
+        run: |
+          cd hugo
+          rm -rf content
+          ln -sf ../md content
+          hugo --minify --baseURL "https://kongshan4219.github.io/blog/"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./hugo/public
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
