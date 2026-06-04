@@ -1,0 +1,81 @@
+---
+title: "Samba 配置快速参考表"
+date: 2026-06-04
+tags: ["linux"]
+---
+
+# Samba 配置快速参考表
+
+**说明**：本表格涵盖 Samba 日常使用中高频用到的配置参数、故障解决方案及操作命令，适配 Ubuntu/Debian、CentOS/RHEL 系统，可直接对照使用。
+
+## 一、常用配置参数表
+
+核心配置文件：`/etc/samba/smb.conf`，参数分为「全局参数」和「共享规则参数」，共享规则参数需嵌套在 `[共享名称]` 段落内。
+
+|参数分类|参数名称|核心作用|常用值|注意事项|
+| ---------------------------| --------------| --------------------------------| ---------------------------| -----------------------------------------|
+|全局参数（[global] 段）|server string|Samba 服务标识（Windows 中显示）|%h server (Samba, Ubuntu)|%h 代表主机名，可自定义|
+||log file|日志文件路径|/var/log/samba/log.%m|%m 代表客户端主机名，便于定位问题|
+||max log size|单个日志文件最大大小|1000（单位：KB）|超过后自动轮转，避免日志过大|
+||wins support|开启 WINS 服务（局域网解析）|Yes/No|小型局域网建议设为 Yes，简化访问|
+||map to guest|匿名用户映射规则|Bad User|配合 guest ok = yes 实现匿名访问|
+|共享规则参数（[共享名] 段）|comment|共享目录备注说明|公共共享目录/私人共享|仅作说明，不影响功能|
+||path|指定 Linux 共享目录路径|/home/yourname/share|必须为绝对路径，需提前创建|
+||browseable|是否允许 Windows 浏览该共享|Yes/No|设为 No 时，需手动输入共享路径访问|
+||writable|是否允许写入文件/创建目录|Yes/No|需配合 Linux 目录权限（chmod/chown）|
+||guest ok|是否允许匿名访问|Yes/No|设为 Yes 时，无需账号密码即可访问|
+||valid users|允许访问的授权用户|yourname, user2（逗号分隔）|用户需先通过 smbpasswd -a 添加|
+||create mask|Windows 新建文件的 Linux 权限|0644（普通）/0600（私密）|0644 表示所有者可读写，其他人只读|
+||directory mask|Windows 新建目录的 Linux 权限|0755（普通）/0700（私密）|0755 表示所有者可读写执行，其他人只读执行|
+
+## 二、故障排查速查表
+
+按「故障现象」分类，对应「可能原因」及「解决步骤」，优先提供最简解决方案。
+
+|故障现象|可能原因|解决步骤|
+| ------------------------------| --------------------------------------------------------------------------| -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|Windows 提示「找不到网络路径」|1. 网络不通；2. Samba 服务未启动；3. 防火墙拦截端口|1. 验证网络：Linux 执行 ping WindowsIP，Windows 执行 ping LinuxIP；2. 重启服务：sudo systemctl restart smbd nmbd（Ubuntu）/smb nmb（CentOS）；3. 开放端口：Ubuntu 用 sudo ufw allow 139/tcp 445/tcp，CentOS 用 sudo firewall-cmd --permanent --add-port=139/tcp 445/tcp && sudo firewall-cmd --reload|
+|输入账号密码后提示「权限不足」|1. Linux 目录权限不足；2. Samba 配置未开放写入；3. 用户未在 valid users 中|1. 调整目录权限：sudo chmod 777 共享目录（临时测试），sudo chown -R 授权用户:用户组 共享目录；2. 检查 smb.conf 中 writable = yes；3. 确认 valid users 包含当前登录用户|
+|testparm 验证配置提示报错|smb.conf 语法错误（如括号不匹配、参数拼写错误）|1. 定位错误行：testparm 输出会提示错误位置；2. 检查格式：共享规则参数需缩进（空格即可），[共享名] 不能重复；3. 恢复默认配置：sudo cp /etc/samba/smb.conf.bak /etc/samba/smb.conf（若之前备份）|
+|无法添加 root 用户到 Samba|root 用户默认被 Samba 禁用|1. 启用 root 访问：sudo smbpasswd -e root；2. 添加密码：sudo smbpasswd -a root；3. 建议优先用普通用户，减少安全风险|
+|Windows 重启后共享挂载消失|未勾选「登录时重新连接」，或自动挂载配置失效|1. 重新映射时勾选「登录时重新连接」；2. 制作批处理脚本：新建 .bat 文件，内容为 net use 盘符: \\LinuxIP\共享名 /persistent:yes，放入 Windows 开机启动项（C:\Users\用户名\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup）|
+|Samba 服务启动失败|smb.conf 配置错误，或端口被占用|1. 查看错误日志：sudo cat /var/log/samba/log.smbd；2. 检查端口占用：sudo netstat -tulpn|
+
+## 三、核心操作命令汇总
+
+按「功能分类」整理，区分 Ubuntu/Debian 与 CentOS/RHEL 差异命令。
+
+|功能分类|Ubuntu/Debian 命令|CentOS/RHEL 命令|说明|
+| ----------| ----------------------------------------------------------| -----------------------------------| --------------------------------------------------|
+|安装与卸载|sudo apt update && sudo apt install samba samba-common-bin|sudo yum install samba samba-client|安装 Samba 核心组件|
+||sudo apt remove --purge samba|sudo yum remove samba|彻底卸载 Samba 及配置|
+|服务管理|sudo systemctl start smbd nmbd|sudo systemctl start smb nmb|启动 Samba 服务|
+||sudo systemctl restart smbd nmbd|sudo systemctl restart smb nmb|重启服务（配置修改后需执行）|
+||sudo systemctl enable smbd nmbd|sudo systemctl enable smb nmb|设置开机自启|
+|用户管理|sudo smbpasswd -a 用户名||添加 Samba 用户并设置密码（需先有 Linux 系统用户）|
+||sudo smbpasswd -e 用户名||启用已添加的 Samba 用户|
+||sudo smbpasswd -x 用户名||删除 Samba 用户|
+|配置与验证|sudo nano /etc/samba/smb.conf||编辑 Samba 配置文件（nano 可换 vim）|
+||testparm||验证配置文件语法正确性|
+||sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak||备份配置文件（修改前必做）|
+|目录权限|sudo mkdir -p 共享目录路径||创建共享目录（-p 确保父目录存在）|
+||sudo chown -R 用户名:用户组 共享目录路径||设置目录所有者为 Samba 授权用户|
+|日志查看|sudo tail -f /var/log/samba/log.smbd|同 Ubuntu|实时查看 Samba 服务日志，排查启动/访问问题|
+
+## 四、常用共享场景配置模板
+
+直接复制到 smb.conf 末尾，修改路径和用户即可使用。
+
+**模板1：公共只读共享（匿名可访问）**
+
+`[PublicRead] comment = 公共只读共享 path = /home/public browseable = yes writable = no guest ok = yes create mask = 0644 directory mask = 0755`
+
+**模板2：多用户权限共享（部分读写，部分只读）**
+
+`[MixedShare] comment = 读写/只读分离共享 path = /home/mixed browseable = yes writable = yes guest ok = no valid users = admin, user1, user2 write list = admin  # 仅 admin 可写，其他用户只读 create mask = 0644 directory mask = 0755`
+
+**模板3：隐藏共享（仅知道路径可访问）**
+
+`[HiddenShare$]  # 结尾加 $ 实现隐藏，Windows 浏览时不显示 comment = 隐藏私人共享 path = /home/yourname/private browseable = no writable = yes guest ok = no valid users = yourname create mask = 0600 directory mask = 0700`
+
+> （注：文档部分内容可能由 AI 生成）
