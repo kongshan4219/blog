@@ -1,7 +1,7 @@
 ---
 title: "springcloud引入nacos踩坑"
 date: 2026-06-04
-tags: ["ecommerce"]
+tags: ["dev"]
 ---
 
 #date/2024-09-24# #lastmod/2024-09-24#

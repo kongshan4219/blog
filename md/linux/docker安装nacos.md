@@ -1,7 +1,7 @@
 ---
 title: "docker安装nacos"
 date: 2026-06-04
-tags: ["ecommerce"]
+tags: ["linux"]
 ---
 
 #date/2024-09-13# #lastmod/2024-09-13#
